@@ -93,6 +93,7 @@ class Button:
                 if self.driver.get_log('driver')[0]['level'] == "WARNING":
                     return 0
             except:
+                traceback.print_exc()
                 pass
 
             time.sleep(1)
@@ -102,6 +103,7 @@ class Button:
                 self.driver.find_element_by_css_selector(login)
             except Exception as e:
                 #print(e)
+                traceback.print_exc()
                 pass
             else:
                 cookie_list = self.driver.get_cookies()
