@@ -3,3 +3,4 @@
 *.xlsx
 *.swp
 data
+logs/*.log

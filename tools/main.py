@@ -12,18 +12,28 @@ from selenium.webdriver import ChromeOptions
 import sys
 
 MAIN_FILE_PATH = os.path.dirname(os.path.abspath(__file__))
-print(MAIN_FILE_PATH)
 BASE_PATH = os.path.dirname(MAIN_FILE_PATH)
-print(BASE_PATH)
+
 os.chdir(MAIN_FILE_PATH)
-#sys.path.append("../Spiders/")
 sys.path.append(os.path.join(BASE_PATH, "./Spiders/"))
+
 DATA_DIR = os.path.join(BASE_PATH, "./data")
+LOG_CONFIG_PATH = os.path.join(BASE_PATH, "./logging.conf")
+
 try:
-    print(DATA_DIR)
     os.mkdir(DATA_DIR)
 except OSError:
     pass
+
+#===================log config=========================
+
+import logging
+import logging.config
+
+logging.config.fileConfig(LOG_CONFIG_PATH, disable_existing_loggers=True)
+logger = logging.getLogger(__name__)
+
+#======================================================
 
 import shgjj
 from A12306 import main12306
@@ -131,7 +141,7 @@ class JdButton(Button):
         self.Automation(url)
         login_element = "[class='user_logout']"
         cookie = self.getCookie(login_element)
-        #print(cookie)
+        logger.info(cookie)
         if cookie:
             try:
                 spider = JSpider(cookie, DATA_DIR)
@@ -287,7 +297,7 @@ class CtripButton(Button):
     def OnClick(self, event):
         login_url = 'https://passport.ctrip.com/user/login'
         cookie_str = self.getCookie3(login_url, 1)
-        print(cookie_str);
+        logger.info(cookie_str)
         if cookie_str == '':
             self.updateStatus(self.frame,2)
             return
@@ -489,7 +499,7 @@ class TaobaoButton(Button):
                     # 保存cookie
                     #file_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + '/Spiders/taobao/taobao_cookies.json')
                     file_path = '../Spiders/taobao/taobao_cookies.json'
-                    #print(file_path)
+                    logger.debug(file_path)
                     cookie_str = json.dumps(cookies_list)
                     self.driver.quit()
                     with open(file_path, 'w') as f:

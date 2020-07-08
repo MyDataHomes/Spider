@@ -10,12 +10,15 @@ from lxml import etree
 import datetime
 import bs4
 
-from pprint import pprint
+import logging
+logger = logging.getLogger(__name__)
+
 
 class JSpider(object):
     def __init__(self, cookie, data_dir="./"):
         self.data_dir = data_dir
         self.session = requests.session()
+        self.logger = logging.getLogger(__name__)
         self.headers = {
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.86 Safari/537.36',
         }
@@ -103,7 +106,7 @@ class JSpider(object):
         url = 'https://authpay.jd.com/card/queryBindCard.action'
         resp = self.session.get(url, headers=self.headers)
         item = {}
-        # print(resp.content.decode())
+        # logger.debug(resp.content.decode())
         item['name'] = etree.HTML(resp.content.decode()).xpath('//span[contains(text(),"持卡人姓名")]/text()')[0].replace(
             '持卡人姓名：', '')
         item['mobile'] = etree.HTML(resp.content.decode()).xpath('//span[contains(text(),"手机号：")]/text()')[0].replace(
@@ -194,9 +197,9 @@ class JSpider(object):
     def get_orders(self):
         for i in [2020, 2019, 2018]:
             url = 'https://order.jd.com/center/list.action?search=0&d={}&s=4096'.format(i)
-            # print(url)
+            logger.debug(url)
             resp = self.session.get(url)
-            # print(resp.content.decode('gbk'))
+            # logger.debug(resp.content.decode('gbk'))
             ele = etree.HTML(resp.content.decode('gbk'))
             obj_list = ele.xpath('//table[@class="td-void order-tb"]/tbody')[1:]
             json_list = []
@@ -250,14 +253,14 @@ class JSpider(object):
     def getAndStoreBoughtItems(self):
         orderParseResults = []
         currentYear = datetime.datetime.now().year
-        # print(currentYear)
+        logger.debug(currentYear)
         for year in range(currentYear, 2013-1, -1):
             paramYear = year
             if year == currentYear:
                 paramYear = 2
             elif year < 2014:
                 paramYear = 3
-            # print("paramYear: ", paramYear)
+            logger.debug("paramYear: {}".format(paramYear))
             r = self.getOnePageOrder(paramYear)
             orderParseResults.extend(r)
 
@@ -268,18 +271,18 @@ class JSpider(object):
         orderParseResults = []
         curPage = 1
         while True:
-            # print("curPage: ", curPage)
+            logger.debug("curPage: {}".format(curPage))
             params = {"search":"0", "d":str(year), "s":"4096", "page":str(curPage)}
             resp = self.session.get(url="https://order.jd.com/center/list.action", params=params, headers=self.headers)
-            #print(resp.request.url)
-            #print(resp.text)
+            logger.debug(resp.request.url)
+            # logger.debug(resp.text)
             resultHtml = resp.text
             
             r = self.parseOnePageOrder(resultHtml)
             orderParseResults.extend(r)
 
             if '<span class="next-disabled">下一页<b></b></span>' in resultHtml or '最近没有下过订单哦~' in resultHtml:
-                # print("breakout")
+                logger.debug("breakout")
                 break
 
             curPage += 1
@@ -288,12 +291,12 @@ class JSpider(object):
     def parseOnePageOrder(self, resultHtml):
         soup = bs4.BeautifulSoup(resultHtml, 'html.parser')
         linkItems = soup.find_all(attrs={"name":"orderIdLinks"})
-        #print(linkItems)
+        logger.debug(linkItems)
         
         urls = []
         for e in linkItems:
             url = e['href']
-            # print(url)
+            logger.debug(url)
             if url.startswith("http://"):
                 url = "https" + url[4:]
             elif url.startswith("//"):
@@ -303,11 +306,11 @@ class JSpider(object):
             elif not url.startswith("https://"):
                 raise Exception("Unsupported url: " + url)
             urls.append(url)
-        #print(urls)
+        logger.debug(urls)
 
         orderParseResults = []
         for url in urls:
-            print(url)
+            logger.debug(url)
             if url.startswith("https://details.jd.com/normal/item.action"):
                 orderParseResult = self.getOrderOfNormal(url)
             elif url.startswith("https://chongzhi.jd.com/order/order_autoDetail.action"):
@@ -328,15 +331,15 @@ class JSpider(object):
         if resultHtml is None:
             resp = self.session.get(url=orderDetailUrl, headers=self.headers)
             resultHtml = resp.text
-        #print(resultHtml)
+        # logger.debug(resultHtml)
         soup = bs4.BeautifulSoup(resultHtml, 'html.parser')
 
         orderId = soup.find(id="orderid")["value"]
-        # print(orderId)
+        logger.debug(orderId)
         
         goodsTotal = soup.find(class_="goods-total")
-        #print(goodsTotal)
-        #print(goodsTotal.ul)
+        # logger.debug(goodsTotal)
+        # logger.debug(goodsTotal.ul)
         goodsTotalAmount = 0
         orderTotalAmount = 0
         for li in goodsTotal.ul.children:
@@ -344,45 +347,45 @@ class JSpider(object):
                 continue
             #TODO:check the result of find_all
             label, txt = li.find_all("span")[:2]
-            #print(label.string, txt.string)
+            logger.debug("label:{}, txt:{}".format(label.string, txt.string))
             if "商品总额" in str(label.string):
                 goodsTotalAmount = float(txt.string.strip().replace("¥", ""))
             elif "应付总额" in str(label.string):
                 orderTotalAmount = float(txt.string.strip().replace("¥", ""))
-        # print(goodsTotalAmount, orderTotalAmount)
+        logger.debug("goodsTotalAmount:{}, orderTotalAmount:{}".format(goodsTotalAmount, orderTotalAmount))
 
         statusString = ""
         paymentTime = 0
         eleStatus = soup.find(class_="state-txt")
         statusString = eleStatus.string
-        # print(statusString)
+        logger.debug(statusString)
         payInfo = soup.find(id="pay-info-nozero")
-        #print(payInfo)
+        # logger.debug(payInfo)
         if payInfo:
             divs = payInfo.find_all(class_="item")
-            # print(divs)
+            # logger.debug(divs)
             for div in divs:
                 label = div.find(class_="label").string.strip()
                 if "付款时间" in label:
                     paymentTime = div.find(class_="info-rcol").string.strip()
                     break
-        # print(paymentTime)
+        logger.debug(paymentTime)
 
         orderItemParseResults = []
 
         goodsList = soup.find(class_="goods-list")
         goodsListTableBody = goodsList.table.tbody
-        #print(goodsListTableBody)
+        # logger.debug(goodsListTableBody)
         trs = goodsListTableBody.find_all("tr")
-        #print(trs)
+        # logger.debug(trs)
         for tr in trs:
             if tr.has_attr("style") and tr["style"] == "display: none":
                 break
             tds = tr.find_all("td")
-            #print(tds)
+            # logger.debug(tds)
             productId = tds[2].string.strip()
             productName = tds[1].find(class_="p-name").a.string.strip()
-            # print(productId, productName)
+            logger.debug("product id:{} , product name:{}".format(productId, productName))
 
             orderItemParseResult = {}
             orderItemParseResult["productId"] = productId
@@ -399,31 +402,31 @@ class JSpider(object):
         orderParseResult["orderItems"] = orderItemParseResults
         # TODO: more info
 
-        # pprint(orderParseResult)
+        logger.debug(orderParseResult)
         return orderParseResult
 
     def getOrderOfChongzhi(self, orderDetailUrl, resultHtml=None):
         if resultHtml is None:
             resp = self.session.get(url=orderDetailUrl, headers=self.headers)
             resultHtml = resp.text
-        #print(resultHtml)
+        #logger.debug(resultHtml)
         soup = bs4.BeautifulSoup(resultHtml, 'html.parser')
 
         orderStateDiv = soup.find(id="orderstate")
-        #print(orderStateDiv)
+        logger.debug(orderStateDiv)
         orderId = orderStateDiv.find(class_="fl").string.replace("："," ").split()[1]
-        # print(orderId)
+        logger.debug(orderId)
         statusString = orderStateDiv.find(class_="ftx-02").string
-        # print(statusString)
+        logger.debug(statusString)
 
         totalAmountDiv = soup.find(class_="total")
-        #print(totalAmountDiv)
+        logger.debug(totalAmountDiv)
         orderTotalAmount = float(totalAmountDiv.find(class_="ftx-01").b.string.strip())
-        # print(orderTotalAmount)
+        logger.debug(orderTotalAmount)
 
         orderInfoDiv = soup.find(id="orderinfo")
         orderInfoUl = orderInfoDiv.find(class_="fore").dd.ul
-        #print(orderInfoUl)
+        logger.debug(orderInfoUl)
         paymentTime = 0
         for li in orderInfoUl.find_all("li"):
             if not li.string:
@@ -432,15 +435,15 @@ class JSpider(object):
             if "下单时间" in text:
                 paymentTime = text.replace("下单时间：", "")
                 break
-        # print(paymentTime)
+        logger.debug(paymentTime)
 
         orderItemParseResults = []
         trs = orderInfoDiv.find(class_="p-list").table.tbody.find_all("tr")
-        #print(trs)
+        logger.debug(trs)
         for i in range(1, len(trs)):
             tr = trs[i]
             tds = tr.find_all("td")
-            #print(tds)
+            logger.debug(tds)
             
             productId = tds[0].string.strip()
             productName = tds[1].div.a.string.strip()
@@ -459,7 +462,7 @@ class JSpider(object):
         orderParseResult["orderItems"] = orderItemParseResults
         # TODO: more info
 
-        # pprint(orderParseResult)
+        logger.debug(orderParseResult)
         return orderParseResult
 
     def changeOrderParseResultListToTable(self, orderParseResultList):
