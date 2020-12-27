@@ -62,12 +62,11 @@ MyDataHomes.Spider旨在安全快捷的帮助用户拿回自己的数据，工�
 ...
 
 ## 开发者交流
-开发者论坛：[http://mydata.homes](http://mydata.homes)
+项目地址：[https://github.com/MyDataHomes/Spider](https://github.com/MyDataHomes/Spider)
 
 ## Membership
 [TrustMirror](http://www.trustmirror.com/)
 
-[TEEX.io](https://teex.io)
 
 ## 协议
 GPL-3.0
